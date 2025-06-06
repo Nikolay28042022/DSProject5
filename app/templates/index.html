@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Система видеонаблюдения</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 20px; background-color: #f0f0f0; }
+        h1 { color: #333; }
+        #video_stream {
+            max-width: 90%;
+            height: auto;
+            border: 2px solid #555;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            margin-top: 20px;
+        }
+        .info {
+            margin-top: 20px;
+            color: #666;
+            font-size: 0.9em;
+        }
+        /* Стили для адаптивности */
+        @media (max-width: 768px) {
+            #video_stream {
+                max-width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Прямой видеопоток с камеры</h1>
+    <img id="video_stream" src="/video_feed" alt="Видеопоток">
+    <div class="info">
+        <p>Этот поток обновляется в реальном времени.</p>
+        <p>Уведомления о движении отправляются в Telegram.</p>
+    </div>
+</body>
+</html>

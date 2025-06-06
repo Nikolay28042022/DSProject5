@@ -1,0 +1,25 @@
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc
+
+# IDE files
+.vscode/
+.idea/
+
+# Docker-related
+# Если Docker сохраняет какие-то временные файлы, не включать
+# Например:
+# .dockerignore # Если он не нужен в репо
+# output/ # Если вы не хотите хранить сгенерированные output изображения в git
+
+# Large files for Git LFS - НЕ ДОБАВЛЯТЬ СЮДА, если они должны быть в LFS
+# Вместо этого мы будем отслеживать их с помощью git lfs track
+# Видеофайлы (если они не являются частью обучающего датасета,
+# который вы хотите хранить в LFS, но обычно это не так)
+videos/
+*.mp4
+
+# Output files (снимки, логи и т.д.)
+output/
+collected_images/

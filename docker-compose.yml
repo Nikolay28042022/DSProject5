@@ -1,0 +1,33 @@
+# docker-compose.app.yml
+
+
+services:
+  app:
+    build:
+      context: . # Контекст сборки: текущая директория (DSProject/)
+      dockerfile: Dockerfile.app # Использовать этот Dockerfile
+    container_name: dsproject_app # Опциональное имя контейнера
+    ports:
+      - "5000:5000" # Проброс порта Flask: HOST_PORT:CONTAINER_PORT
+    volumes:
+      # Монтирование папки 'app/videos' для доступа к видеофайлам
+      - ./app/videos:/app/videos
+      # Монтирование папки 'app/output' для сохранения выходных изображений
+      - ./app/output:/app/output
+      # Монтирование общей папки 'shared_data'
+      - ./shared_data:/app/shared_data
+    environment:
+      # Загружаем переменные окружения из .env файла
+      # Это более безопасный способ передачи токенов
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - WEB_SERVER_URL=${WEB_SERVER_URL}
+      - WEB_SERVER_HOST=${WEB_SERVER_HOST}
+      - WEB_SERVER_PORT=${WEB_SERVER_PORT}
+    restart: unless-stopped # Перезапускать контейнер, если он неожиданно остановился
+    # Для Linux-систем, если есть проблемы с отображением окон OpenCV:
+    # environment:
+    #   - DISPLAY=$DISPLAY
+    # volumes:
+    #   - /tmp/.X11-unix:/tmp/.X11-unix
+    # privileged: true # Может быть нужно для прямого доступа к устройству

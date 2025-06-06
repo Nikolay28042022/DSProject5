@@ -1,0 +1,30 @@
+# training/Dockerfile.training
+
+# Используем базовый образ Python
+# Для обучения рекомендуется использовать образ с поддержкой CUDA, если у вас есть GPU
+# Например: FROM pytorch/pytorch:1.13.1-cuda11.6-cudnn8-runtime (для PyTorch)
+# Или просто python:3.10-slim-buster, если вы обучаетесь на CPU
+FROM python:3.10-slim-buster
+
+# Устанавливаем необходимые системные зависимости
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    git && \
+    rm -rf /var/lib/apt/lists/*
+
+# Устанавливаем рабочую директорию
+WORKDIR /app
+
+# Копируем все из папки 'training' в рабочую директорию контейнера
+COPY . .
+
+# Копируем папку shared_data (или, по крайней мере, ее структуру)
+# На этапе сборки, чтобы пути внутри контейнера были корректными.
+# Фактические данные будут монтироваться через volume.
+RUN mkdir -p shared_data/collected_images shared_data/models
+
+# Устанавливаем Python-зависимости
+RUN pip install --no-cache-dir -r requirements_training.txt
+
+# Команда по умолчанию, которая будет переопределяться при запуске docker compose run
+CMD ["python", "train_yolo.py", "--help"] # Просто для информации
