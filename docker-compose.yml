@@ -4,8 +4,8 @@
 services:
   app:
     build:
-      context: .
-      dockerfile: Dockerfile.app
+      context: ./app 
+      dockerfile: Dockerfile
     ports:
       - "5000:5000"
     volumes:
@@ -27,8 +27,8 @@ services:
 
   telegram:
     build:
-      context: .
-      dockerfile: Dockerfile.telegram
+      context: ./telegram     # Контекст сборки - папка 'telegram'
+      dockerfile: Dockerfile
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
