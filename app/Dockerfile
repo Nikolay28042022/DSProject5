@@ -15,13 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt \
 # Копируем остальное содержимое приложения (включая main.py, detector.py, templates/)
 COPY . .
 
-# Копируем директорию shared_data, чтобы YOLO могла найти модель (из корня контекста сборки docker-compose)
-COPY ../shared_data/ /shared_data/
-# Копируем папку videos (из корня контекста сборки docker-compose)
-COPY ../videos/ /app/videos/
-
 # Обязательно для YOLO, чтобы найти модель
-ENV YOLO_MODELS_DIR=/shared_data/models
+ENV YOLO_MODELS_DIR=/shared_data/models    # Эта переменная окружения все еще нужна
 
 # Порт, который будет слушать Flask
 EXPOSE 5000
