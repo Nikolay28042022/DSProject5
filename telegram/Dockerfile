@@ -5,7 +5,7 @@ FROM python:3.10-slim-buster
 WORKDIR /app
 
 # Копируем requirements.txt
-COPY requirements.txt .  # <--- ИЗМЕНЕНО: теперь просто requirements.txt
+COPY requirements.txt .
 
 # Устанавливаем зависимости
 RUN pip install --no-cache-dir -r requirements.txt

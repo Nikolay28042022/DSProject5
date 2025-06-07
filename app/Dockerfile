@@ -5,7 +5,7 @@ FROM pytorch/pytorch:2.2.0-cuda11.8-cudnn8-runtime
 WORKDIR /app
 
 # Копируем requirements.txt
-COPY requirements.txt .  # <--- ИЗМЕНЕНО: теперь просто requirements.txt
+COPY requirements.txt .
 
 # Устанавливаем зависимости Python.
 RUN pip install --no-cache-dir -r requirements.txt \
@@ -16,9 +16,9 @@ RUN pip install --no-cache-dir -r requirements.txt \
 COPY . .
 
 # Копируем директорию shared_data, чтобы YOLO могла найти модель (из корня контекста сборки docker-compose)
-COPY ../shared_data/ /shared_data/ # <--- ИЗМЕНЕНО: путь теперь относительный к корневой папке проекта, т.к. контекст - app
+COPY ../shared_data/ /shared_data/
 # Копируем папку videos (из корня контекста сборки docker-compose)
-COPY ../videos/ /app/videos/       # <--- ИЗМЕНЕНО: путь теперь относительный к корневой папке проекта
+COPY ../videos/ /app/videos/
 
 # Обязательно для YOLO, чтобы найти модель
 ENV YOLO_MODELS_DIR=/shared_data/models
