@@ -16,7 +16,8 @@ RUN pip install --no-cache-dir -r requirements.txt \
 COPY . .
 
 # Обязательно для YOLO, чтобы найти модель
-ENV YOLO_MODELS_DIR=/shared_data/models    # Эта переменная окружения все еще нужна
+# Эта переменная окружения все еще нужна
+ENV YOLO_MODELS_DIR=/shared_data/models    
 
 # Порт, который будет слушать Flask
 EXPOSE 5000
