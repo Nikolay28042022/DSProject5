@@ -119,7 +119,7 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
             (x, y, w, h) = cv2.boundingRect(c)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2) # Зеленая рамка MOG2
         end_mog2_time = time.time() # Тайминг
-        print(f"[Detector Timing] MOG2 Processing: {end_mog2_time - start_mog2_time:.4f}s")
+        # print(f"[Detector Timing] MOG2 Processing: {end_mog2_time - start_mog2_time:.4f}s")
 
 
         # --- YOLO: Обнаружение объектов ---
@@ -145,7 +145,7 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
                     detected_objects_names.append(name)
             end_yolo_time = time.time() # Тайминг
             last_yolo_run_time = current_time # Обновляем время последнего запуска YOLO
-            print(f"[Detector Timing] YOLO Detection: {end_yolo_time - start_yolo_time:.4f}s")
+            # print(f"[Detector Timing] YOLO Detection: {end_yolo_time - start_yolo_time:.4f}s")
 
 
         # --- Обновление кадра для веб-стриминга ---
@@ -154,7 +154,7 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
             current_frame_for_stream = frame.copy() # Кадр с обеими рамками
             raw_frame_for_collection = original_frame_copy.copy() # Сырой кадр для сбора
             end_copy_time = time.time() # Тайминг
-            print(f"[Detector Timing] Frame Copy: {end_copy_time - start_copy_time:.4f}s")
+            # print(f"[Detector Timing] Frame Copy: {end_copy_time - start_copy_time:.4f}s")
 
 
         # --- Логика отправки в Telegram (через очередь) ---
@@ -201,8 +201,8 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
         # --- Конец итерации цикла ---
         end_loop_time = time.time() # Тайминг
         frame_processing_time = end_loop_time - start_loop_time
-        print(f"[Detector Timing] Total Frame Processing: {frame_processing_time:.4f}s")
-        print(f"[Detector Timing] Approximate FPS: {1 / frame_processing_time:.2f} FPS") # Тайминг
+        # print(f"[Detector Timing] Total Frame Processing: {frame_processing_time:.4f}s")
+        # print(f"[Detector Timing] Approximate FPS: {1 / frame_processing_time:.2f} FPS") # Тайминг
 
     cap.release()
     print("[Detector] Поток обработки видео завершил работу.")
