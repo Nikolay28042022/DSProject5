@@ -6,35 +6,35 @@ import os
 import time
 import threading
 import datetime
-import requests # Импортируем для HTTP-запросов
-import json # Для работы с JSON-данными для HTTP-запроса
+import requests
+import json
 
 from ultralytics import YOLO
 import torch
 
 # --- Конфигурация для модуля детектирования ---
-VIDEO_PATH = 'videos/video.mp4' # Внутри контейнера app
+VIDEO_PATH = 'videos/video.mp4' 
 
-MIN_AREA = 1000 # Увеличен до 1000, чтобы игнорировать мелкое движение
-DETECTION_INTERVAL_SECONDS = 3.0 # Как часто запускать YOLO для визуализации на стриме (увеличено)
-COLLECT_IMAGE_INTERVAL_SECONDS = 60 # Как часто сохранять кадры для разметки при движении (увеличено)
+MIN_AREA = 1000 
+DETECTION_INTERVAL_SECONDS = 3.0 
+COLLECT_IMAGE_INTERVAL_SECONDS = 60 
 
 # Глобальные переменные для обмена данными внутри модуля или с main.py
-current_frame_for_stream = None # Кадр для веб-стриминга (с рамками)
-raw_frame_for_collection = None # Сырой кадр для сбора (без рамок)
-detector_lock = threading.Lock() # Мьютекс для безопасного доступа к кадрам
+current_frame_for_stream = None 
+raw_frame_for_collection = None 
+detector_lock = threading.Lock() 
 
 # Инициализация YOLO модели
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f"[YOLO Detector] Используется устройство: {DEVICE}")
-yolo_model_path = os.path.join('shared_data', 'models', 'yolov8n.pt') # Путь внутри контейнера
+yolo_model_path = os.path.join('shared_data', 'models', 'yolov8n.pt') 
 yolo_model = YOLO(yolo_model_path)
 print("[YOLO Detector] Модель YOLOv8n успешно загружена.")
 
 # --- Флаг для режима сбора изображений ---
 COLLECT_IMAGES_MODE = False
 COLLECTED_IMAGES_BASE_FOLDER = os.path.join('shared_data', 'collected_images')
-COLLECTED_IMAGES_CURRENT_RUN_FOLDER = None # Будет инициализирован при запуске потока
+COLLECTED_IMAGES_CURRENT_RUN_FOLDER = None 
 last_collection_time = time.time()
 
 
@@ -43,7 +43,7 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
                            collect_images_mode=False,
                            output_folder='output',
                            telegram_api_url='http://telegram:5001/send_task',
-                           web_server_url='http://127.0.0.1:5000/'): # Новый параметр для URL веб-сервера
+                           web_server_url='http://127.0.0.1:5000/'): 
     """
     Запускает поток обработки видео.
     :param video_path: Путь к видеофайлу.
@@ -88,7 +88,7 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
     last_yolo_run_time = time.time()
 
     while True:
-        start_loop_time = time.time() # Начало итерации цикла
+        start_loop_time = time.time() 
 
         ret, frame = cap.read()
 
@@ -97,14 +97,14 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             continue
 
-        frame = imutils.resize(frame, width=480) # Уменьшен размер кадра до 480
+        frame = imutils.resize(frame, width=480) 
         original_frame_copy = frame.copy()
 
         detected_objects_names = []
         motion_detected_mog2 = False
 
         # --- MOG2: Обнаружение движения ---
-        start_mog2_time = time.time() # Тайминг
+        start_mog2_time = time.time() 
         gray = cv2.cvtColor(original_frame_copy, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (21, 21), 0)
         fgmask = fgbg.apply(gray)
@@ -119,17 +119,14 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
                 continue
             motion_detected_mog2 = True
             (x, y, w, h) = cv2.boundingRect(c)
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2) # Зеленая рамка MOG2
-        end_mog2_time = time.time() # Тайминг
-        # print(f"[Detector Timing] MOG2 Processing: {end_mog2_time - start_mog2_time:.4f}s")
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2) 
+        end_mog2_time = time.time() 
 
 
         # --- YOLO: Обнаружение объектов ---
         current_time = time.time()
-        # Запускаем YOLO, если есть движение MOG2, ИЛИ если прошло достаточно времени с последнего запуска
-        # Это позволяет YOLO не "спать" слишком долго, даже если MOG2 не видит движения.
         if motion_detected_mog2 or (current_time - last_yolo_run_time >= DETECTION_INTERVAL_SECONDS):
-            start_yolo_time = time.time() # Тайминг
+            start_yolo_time = time.time() 
             results = yolo_model(original_frame_copy, conf=0.5, verbose=False, device=DEVICE)
 
             for r in results:
@@ -140,35 +137,32 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
                     cls = int(box.cls[0])
                     name = yolo_model.names[cls]
 
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2) # Синяя рамка YOLO
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2) 
                     text = f"{name} {conf}"
                     cv2.putText(frame, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
                     detected_objects_names.append(name)
-            end_yolo_time = time.time() # Тайминг
-            last_yolo_run_time = current_time # Обновляем время последнего запуска YOLO
-            # print(f"[Detector Timing] YOLO Detection: {end_yolo_time - start_yolo_time:.4f}s")
+            end_yolo_time = time.time() 
+            last_yolo_run_time = current_time 
 
 
         # --- Обновление кадра для веб-стриминга ---
         with detector_lock:
-            start_copy_time = time.time() # Тайминг
-            current_frame_for_stream = frame.copy() # Кадр с обеими рамками (для веб-стрима)
-            raw_frame_for_collection = original_frame_copy.copy() # Сырой кадр (для сбора и Telegram)
-            end_copy_time = time.time() # Тайминг
-            # print(f"[Detector Timing] Frame Copy: {end_copy_time - start_copy_time:.4f}s")
+            start_copy_time = time.time() 
+            current_frame_for_stream = frame.copy() 
+            raw_frame_for_collection = original_frame_copy.copy() 
+            end_copy_time = time.time() 
 
 
         # --- Логика отправки в Telegram (через HTTP-запрос) ---
         if motion_detected_mog2 and (current_time - last_telegram_photo_time >= telegram_photo_interval):
             timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
             photo_filename = f"motion_detected_{timestamp}.jpg"
-            # Сохраняем НЕРАЗМЕЧЕННЫЙ кадр для Telegram
             full_photo_path = os.path.join(output_folder, photo_filename) 
-            cv2.imwrite(full_photo_path, raw_frame_for_collection) # <--- ИЗМЕНЕНО: Используем raw_frame_for_collection
+            cv2.imwrite(full_photo_path, raw_frame_for_collection) 
 
             message_parts = ["Обнаружено движение!"]
-            voice_message_text = "Обнаружено движение. "
+            voice_message_text = "Обнаружено движение. " # <--- ИЗМЕНЕНО: Убрана фраза про Live-стрим
 
             if detected_objects_names:
                 unique_objects = ", ".join(sorted(list(set(detected_objects_names))))
@@ -178,8 +172,7 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
                 message_parts.append("Объекты не классифицированы.")
                 voice_message_text += "Объекты не классифицированы."
 
-            message_parts.append(f"\nПосмотреть Live-стрим: {web_server_url}") # <--- ДОБАВЛЕНО: Ссылка на веб-сервер
-            voice_message_text += f"Посмотреть Live-стрим." # Текст для голоса (без URL)
+            message_parts.append(f"\nПосмотреть Live-стрим: {web_server_url}") 
 
             message_text_telegram = f"{' '.join(message_parts)} в {datetime.datetime.now().strftime('%H:%M:%S')}!"
             
@@ -190,15 +183,13 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
                     'message_text': message_text_telegram,
                     'voice_text': voice_message_text
                 }
-                # Имя сервиса 'telegram' резолвится в его IP внутри Docker-сети
                 response = requests.post(telegram_api_url, json=payload, timeout=5)
-                response.raise_for_status() # Вызывает исключение для HTTP ошибок (4xx или 5xx)
+                response.raise_for_status() 
                 print(f"[Detector] Задача для Telegram успешно отправлена по HTTP: {response.json()}")
             except requests.exceptions.RequestException as e:
                 print(f"[Detector ERROR] Ошибка при отправке задачи в Telegram API: {e}")
 
             last_telegram_photo_time = current_time
-            # print(f"[Detector] Задача для Telegram добавлена в очередь: {full_photo_path}") # Закомментировано, т.к. выше есть сообщение об HTTP
 
         # --- Режим сбора изображений для разметки ---
         if COLLECT_IMAGES_MODE and motion_detected_mog2 and (current_time - last_collection_time >= COLLECT_IMAGE_INTERVAL_SECONDS):
@@ -211,10 +202,9 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
             last_collection_time = current_time
 
         # --- Конец итерации цикла ---
-        end_loop_time = time.time() # Тайминг
+        end_loop_time = time.time() 
         frame_processing_time = end_loop_time - start_loop_time
-        # print(f"[Detector Timing] Total Frame Processing: {frame_processing_time:.4f}s")
-        # print(f"[Detector Timing] Approximate FPS: {1 / frame_processing_time:.2f} FPS") # Тайминг
+
 
     cap.release()
     print("[Detector] Поток обработки видео завершил работу.")
