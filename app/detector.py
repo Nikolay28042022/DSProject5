@@ -20,8 +20,8 @@ DETECTION_INTERVAL_SECONDS = 3.0
 COLLECT_IMAGE_INTERVAL_SECONDS = 60 
 
 # Глобальные переменные для обмена данными внутри модуля или с main.py
-current_frame_for_stream = None 
-raw_frame_for_collection = None 
+current_frame_for_stream = None # Кадр для веб-стриминга (с рамками)
+raw_frame_for_collection = None # Сырой кадр для сбора (без рамок)
 detector_lock = threading.Lock() 
 
 # Инициализация YOLO модели
@@ -98,7 +98,7 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
             continue
 
         frame = imutils.resize(frame, width=480) 
-        original_frame_copy = frame.copy()
+        original_frame_copy = frame.copy() # Сырой кадр, без разметки
 
         detected_objects_names = []
         motion_detected_mog2 = False
@@ -119,7 +119,7 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
                 continue
             motion_detected_mog2 = True
             (x, y, w, h) = cv2.boundingRect(c)
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2) 
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2) # Зеленая рамка MOG2
         end_mog2_time = time.time() 
 
 
@@ -137,7 +137,7 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
                     cls = int(box.cls[0])
                     name = yolo_model.names[cls]
 
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2) 
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2) # Синяя рамка YOLO
                     text = f"{name} {conf}"
                     cv2.putText(frame, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
@@ -149,8 +149,8 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
         # --- Обновление кадра для веб-стриминга ---
         with detector_lock:
             start_copy_time = time.time() 
-            current_frame_for_stream = frame.copy() 
-            raw_frame_for_collection = original_frame_copy.copy() 
+            current_frame_for_stream = original_frame_copy.copy() # <--- ИЗМЕНЕНО: Отправляем неразмеченный кадр для веб-стрима
+            raw_frame_for_collection = original_frame_copy.copy() # Этот кадр всегда остается неразмеченным
             end_copy_time = time.time() 
 
 
@@ -162,7 +162,7 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
             cv2.imwrite(full_photo_path, raw_frame_for_collection) 
 
             message_parts = ["Обнаружено движение!"]
-            voice_message_text = "Обнаружено движение. " # <--- ИЗМЕНЕНО: Убрана фраза про Live-стрим
+            voice_message_text = "Обнаружено движение. " 
 
             if detected_objects_names:
                 unique_objects = ", ".join(sorted(list(set(detected_objects_names))))

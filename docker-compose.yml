@@ -1,37 +1,40 @@
-services:
-  app:
-    build:
-      context: ./app
-      dockerfile: Dockerfile
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./shared_data:/shared_data
-      - ./videos:/app/videos
-      - ./app/output:/app/output
-    environment:
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN} # Убедитесь, что TELEGRAM_BOT_TOKEN в .env без кавычек
-      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}     # Убедитесь, что TELEGRAM_CHAT_ID в .env без кавычек
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    depends_on: # <--- Добавлено: app зависит от telegram, чтобы telegram запустился первым
-      - telegram
 
-  telegram:
-    build:
-      context: ./telegram
-      dockerfile: Dockerfile
-    ports: # <--- Добавлено: Пробрасываем порт для Flask API Telegram-бота
-      - "5001:5001"
-    environment:
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN} # Убедитесь, что TELEGRAM_BOT_TOKEN в .env без кавычек
-      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}     # Убедитесь, что TELEGRAM_CHAT_ID в .env без кавычек
-      - TELEGRAM_FLASK_PORT=5001 # <--- Добавлено: Указываем порт для Flask внутри контейнера
-    volumes:
-      - ./shared_data:/shared_data
-      - ./app/output:/app/output # Очень важно, чтобы бот мог читать фото из этой папки
+
+    services:
+      app:
+        build:
+          context: . # <--- ИЗМЕНЕНО: Контекст теперь корень проекта DSProject5
+          dockerfile: ./app/Dockerfile # <--- ИЗМЕНО: Указываем полный путь к Dockerfile внутри контекста
+        ports:
+          - "5000:5000"
+        volumes:
+          - ./shared_data:/shared_data # Монтируем shared_data
+          - ./videos:/app/videos       # Монтируем папку с видео
+          - ./app/output:/app/output   # Монтируем папку output для снимков
+        environment:
+          - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+          - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+        deploy:
+          resources:
+            reservations:
+              devices:
+                - driver: nvidia
+                  count: all
+                  capabilities: [gpu]
+        depends_on:
+          - telegram
+
+      telegram:
+        build:
+          context: ./telegram
+          dockerfile: Dockerfile
+        ports:
+          - "5001:5001"
+        environment:
+          - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+          - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+          - TELEGRAM_FLASK_PORT=5001
+        volumes:
+          - ./shared_data:/shared_data
+          - ./app/output:/app/output
+    
