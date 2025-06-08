@@ -6,7 +6,9 @@ import os
 import time
 import threading
 import datetime
-import queue
+# import queue # Больше не нужна внутренняя очередь, т.к. отправляем по HTTP
+import requests # Импортируем для HTTP-запросов
+import json # Для работы с JSON-данными для HTTP-запроса
 
 from ultralytics import YOLO
 import torch
@@ -31,7 +33,7 @@ yolo_model = YOLO(yolo_model_path)
 print("[YOLO Detector] Модель YOLOv8n успешно загружена.")
 
 # Очередь для передачи информации о движении/классификации в main.py
-motion_detection_queue = queue.Queue()
+# motion_detection_queue = queue.Queue() # Больше не нужна
 
 # --- Флаг для режима сбора изображений ---
 COLLECT_IMAGES_MODE = False
@@ -43,7 +45,8 @@ last_collection_time = time.time()
 # --- Главный поток обработки видео ---
 def start_video_detection(video_path, min_area, telegram_photo_interval,
                            collect_images_mode=False,
-                           output_folder='output'):
+                           output_folder='output',
+                           telegram_api_url='http://telegram:5001/send_task'): # Новый параметр для URL Telegram API
     """
     Запускает поток обработки видео.
     :param video_path: Путь к видеофайлу.
@@ -51,6 +54,7 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
     :param telegram_photo_interval: Интервал для отправки снимков в Telegram.
     :param collect_images_mode: Если True, сохраняет кадры для разметки.
     :param output_folder: Папка для сохранения обнаруженных снимков (внутри контейнера app).
+    :param telegram_api_url: URL для отправки задач Telegram-боту.
     """
     global current_frame_for_stream, detector_lock
     global raw_frame_for_collection, COLLECT_IMAGES_MODE, COLLECTED_IMAGES_CURRENT_RUN_FOLDER, last_collection_time
@@ -157,11 +161,12 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
             # print(f"[Detector Timing] Frame Copy: {end_copy_time - start_copy_time:.4f}s")
 
 
-        # --- Логика отправки в Telegram (через очередь) ---
+        # --- Логика отправки в Telegram (через HTTP-запрос) ---
         if motion_detected_mog2 and (current_time - last_telegram_photo_time >= telegram_photo_interval):
             timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
             photo_filename = f"motion_detected_{timestamp}.jpg"
-            full_photo_path = os.path.join(output_folder, photo_filename)
+            # Сохраняем фото в /app/output, так как эта папка монтируется в контейнерах
+            full_photo_path = os.path.join(output_folder, photo_filename) 
 
             cv2.imwrite(full_photo_path, frame) # Сохраняем кадр с рамками
 
@@ -178,11 +183,19 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
 
             message_text_telegram = f"{' '.join(message_parts)} в {datetime.datetime.now().strftime('%H:%M:%S')}!"
             
-            motion_detection_queue.put({
-                'photo_path': full_photo_path,
-                'message_text': message_text_telegram,
-                'voice_text': voice_message_text
-            })
+            # Отправляем HTTP POST-запрос на Telegram API
+            try:
+                payload = {
+                    'photo_path': full_photo_path,
+                    'message_text': message_text_telegram,
+                    'voice_text': voice_message_text
+                }
+                # Имя сервиса 'telegram' резолвится в его IP внутри Docker-сети
+                response = requests.post(telegram_api_url, json=payload, timeout=5)
+                response.raise_for_status() # Вызывает исключение для HTTP ошибок (4xx или 5xx)
+                print(f"[Detector] Задача для Telegram успешно отправлена по HTTP: {response.json()}")
+            except requests.exceptions.RequestException as e:
+                print(f"[Detector ERROR] Ошибка при отправке задачи в Telegram API: {e}")
 
             last_telegram_photo_time = current_time
             print(f"[Detector] Задача для Telegram добавлена в очередь: {full_photo_path}")
