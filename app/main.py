@@ -12,9 +12,10 @@ load_dotenv()
 import detector
 
 # Конфигурация приложения
-WEB_SERVER_URL = os.getenv('WEB_SERVER_URL', 'http://127.0.0.1:5000/')
+WEB_SERVER_URL = os.getenv('WEB_SERVER_URL', 'http://127.0.0.1:5000/') # Получаем URL из .env
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+TELEGRAM_FLASK_PORT = os.getenv('TELEGRAM_FLASK_PORT', 5001) # Порт API Telegram-бота
 
 # Параметры детектирования
 VIDEO_SOURCE = 'videos/video.mp4'  # Путь к видеофайлу внутри контейнера
@@ -32,11 +33,14 @@ if not os.path.exists(OUTPUT_FOLDER):
     print(f"[Main App] Создана папка для выходных данных: {OUTPUT_FOLDER}")
 
 # Инициализация и запуск потока детектора
-# Этот поток будет захватывать кадры, обрабатывать их и обновлять current_frame_for_stream
+# Передаем TELEGRAM_API_URL и WEB_SERVER_URL
+telegram_api_url_internal = f"http://telegram:{TELEGRAM_FLASK_PORT}/send_task" # URL для обращения к Telegram-боту внутри Docker-сети
+
 detector_thread = threading.Thread(target=detector.start_video_detection,
                                    args=(VIDEO_SOURCE, MIN_AREA_FOR_MOTION, TELEGRAM_PHOTO_INTERVAL,
-                                         COLLECT_IMAGES_FOR_TRAINING, OUTPUT_FOLDER),
-                                   daemon=True) # daemon=True позволяет потоку завершиться при завершении main-приложения
+                                         COLLECT_IMAGES_FOR_TRAINING, OUTPUT_FOLDER,
+                                         telegram_api_url_internal, WEB_SERVER_URL), # Передаем WEB_SERVER_URL
+                                   daemon=True)
 detector_thread.start()
 print("[Main App] Поток детектора запущен.")
 
@@ -65,7 +69,6 @@ def generate_frames():
 
         if frame is not None:
             # Кодируем кадр в JPEG
-            # cv2.imencode требует, чтобы cv2 был импортирован в этом файле
             ret, buffer = cv2.imencode('.jpg', frame)
             if ret:
                 frame_bytes = buffer.tobytes()

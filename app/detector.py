@@ -6,7 +6,6 @@ import os
 import time
 import threading
 import datetime
-# import queue # Больше не нужна внутренняя очередь, т.к. отправляем по HTTP
 import requests # Импортируем для HTTP-запросов
 import json # Для работы с JSON-данными для HTTP-запроса
 
@@ -32,9 +31,6 @@ yolo_model_path = os.path.join('shared_data', 'models', 'yolov8n.pt') # Путь
 yolo_model = YOLO(yolo_model_path)
 print("[YOLO Detector] Модель YOLOv8n успешно загружена.")
 
-# Очередь для передачи информации о движении/классификации в main.py
-# motion_detection_queue = queue.Queue() # Больше не нужна
-
 # --- Флаг для режима сбора изображений ---
 COLLECT_IMAGES_MODE = False
 COLLECTED_IMAGES_BASE_FOLDER = os.path.join('shared_data', 'collected_images')
@@ -46,7 +42,8 @@ last_collection_time = time.time()
 def start_video_detection(video_path, min_area, telegram_photo_interval,
                            collect_images_mode=False,
                            output_folder='output',
-                           telegram_api_url='http://telegram:5001/send_task'): # Новый параметр для URL Telegram API
+                           telegram_api_url='http://telegram:5001/send_task',
+                           web_server_url='http://127.0.0.1:5000/'): # Новый параметр для URL веб-сервера
     """
     Запускает поток обработки видео.
     :param video_path: Путь к видеофайлу.
@@ -55,10 +52,11 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
     :param collect_images_mode: Если True, сохраняет кадры для разметки.
     :param output_folder: Папка для сохранения обнаруженных снимков (внутри контейнера app).
     :param telegram_api_url: URL для отправки задач Telegram-боту.
+    :param web_server_url: URL веб-сервера Flask для ссылки в Telegram.
     """
     global current_frame_for_stream, detector_lock
     global raw_frame_for_collection, COLLECT_IMAGES_MODE, COLLECTED_IMAGES_CURRENT_RUN_FOLDER, last_collection_time
-    global DETECTION_INTERVAL_SECONDS, COLLECT_IMAGE_INTERVAL_SECONDS # Для доступа к переменным внутри функции
+    global DETECTION_INTERVAL_SECONDS, COLLECT_IMAGE_INTERVAL_SECONDS
 
     COLLECT_IMAGES_MODE = collect_images_mode
     if COLLECT_IMAGES_MODE:
@@ -155,8 +153,8 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
         # --- Обновление кадра для веб-стриминга ---
         with detector_lock:
             start_copy_time = time.time() # Тайминг
-            current_frame_for_stream = frame.copy() # Кадр с обеими рамками
-            raw_frame_for_collection = original_frame_copy.copy() # Сырой кадр для сбора
+            current_frame_for_stream = frame.copy() # Кадр с обеими рамками (для веб-стрима)
+            raw_frame_for_collection = original_frame_copy.copy() # Сырой кадр (для сбора и Telegram)
             end_copy_time = time.time() # Тайминг
             # print(f"[Detector Timing] Frame Copy: {end_copy_time - start_copy_time:.4f}s")
 
@@ -165,10 +163,9 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
         if motion_detected_mog2 and (current_time - last_telegram_photo_time >= telegram_photo_interval):
             timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
             photo_filename = f"motion_detected_{timestamp}.jpg"
-            # Сохраняем фото в /app/output, так как эта папка монтируется в контейнерах
+            # Сохраняем НЕРАЗМЕЧЕННЫЙ кадр для Telegram
             full_photo_path = os.path.join(output_folder, photo_filename) 
-
-            cv2.imwrite(full_photo_path, frame) # Сохраняем кадр с рамками
+            cv2.imwrite(full_photo_path, raw_frame_for_collection) # <--- ИЗМЕНЕНО: Используем raw_frame_for_collection
 
             message_parts = ["Обнаружено движение!"]
             voice_message_text = "Обнаружено движение. "
@@ -180,6 +177,9 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
             else:
                 message_parts.append("Объекты не классифицированы.")
                 voice_message_text += "Объекты не классифицированы."
+
+            message_parts.append(f"\nПосмотреть Live-стрим: {web_server_url}") # <--- ДОБАВЛЕНО: Ссылка на веб-сервер
+            voice_message_text += f"Посмотреть Live-стрим." # Текст для голоса (без URL)
 
             message_text_telegram = f"{' '.join(message_parts)} в {datetime.datetime.now().strftime('%H:%M:%S')}!"
             
@@ -198,8 +198,7 @@ def start_video_detection(video_path, min_area, telegram_photo_interval,
                 print(f"[Detector ERROR] Ошибка при отправке задачи в Telegram API: {e}")
 
             last_telegram_photo_time = current_time
-            print(f"[Detector] Задача для Telegram добавлена в очередь: {full_photo_path}")
-
+            # print(f"[Detector] Задача для Telegram добавлена в очередь: {full_photo_path}") # Закомментировано, т.к. выше есть сообщение об HTTP
 
         # --- Режим сбора изображений для разметки ---
         if COLLECT_IMAGES_MODE and motion_detected_mog2 and (current_time - last_collection_time >= COLLECT_IMAGE_INTERVAL_SECONDS):
